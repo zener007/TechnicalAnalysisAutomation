@@ -10,6 +10,8 @@ from mp_support_resist import (
     sr_penetration_signal,
 )
 from harmonic_patterns import get_extremes, find_xabcd, ALL_PATTERNS
+from directional_change import directional_change
+from rolling_window import rw_extremes
 
 
 def load_data(path="BTCUSDT3600.csv"):
@@ -55,6 +57,37 @@ def sr_signals(data, lookback=365):
     return sr_penetration_signal(data, levels)
 
 
+def dc_signals(data, sigma=0.02):
+    """Directional-change based signal using high/low retracements."""
+    tops, bottoms = directional_change(
+        data["close"].to_numpy(),
+        data["high"].to_numpy(),
+        data["low"].to_numpy(),
+        sigma,
+    )
+    signal = np.zeros(len(data))
+    for conf_i, _ext_i, _ext_p in tops:
+        if conf_i < len(signal):
+            signal[conf_i] = -1.0
+    for conf_i, _ext_i, _ext_p in bottoms:
+        if conf_i < len(signal):
+            signal[conf_i] = 1.0
+    return signal
+
+
+def rw_signals(close_arr, order=10):
+    """Rolling-window local extreme signal."""
+    tops, bottoms = rw_extremes(close_arr, order)
+    signal = np.zeros(len(close_arr))
+    for conf_i, _ext_i, _ext_p in tops:
+        if conf_i < len(signal):
+            signal[conf_i] = -1.0
+    for conf_i, _ext_i, _ext_p in bottoms:
+        if conf_i < len(signal):
+            signal[conf_i] = 1.0
+    return signal
+
+
 
 def aggregate_signals(path: str = "BTCUSDT3600.csv", include_pip_miner: bool = False) -> pd.DataFrame:
     """Return a dataframe with a signal column for each strategy.
@@ -75,12 +108,16 @@ def aggregate_signals(path: str = "BTCUSDT3600.csv", include_pip_miner: bool = F
     hs_sig = head_shoulders_signals(log_close)
     flag_sig = flag_pennant_signals(log_close)
     harm_sig = harmonic_signals(data)
+    dc_sig = dc_signals(data)
+    rw_sig = rw_signals(log_close)
 
     df = pd.DataFrame(index=data.index)
     df["sr_signal"] = sr_sig
     df["hs_signal"] = hs_sig
     df["flag_signal"] = flag_sig
     df["harmonic_signal"] = harm_sig
+    df["dc_signal"] = dc_sig
+    df["rw_signal"] = rw_sig
 
     if include_pip_miner:
         from wf_pip_miner import WFPIPMiner
