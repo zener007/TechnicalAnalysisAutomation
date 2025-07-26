@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import mplfinance as mpf
 import scipy
 import math
-import pandas_ta as ta
+from ta.volatility import AverageTrueRange
 
 
 def find_levels( 
@@ -49,8 +49,15 @@ def support_resistance_levels(
         first_w: float = 0.01, atr_mult:float=3.0, prom_thresh:float =0.25
 ):
 
-    # Get log average true range, 
-    atr = ta.atr(np.log(data['high']), np.log(data['low']), np.log(data['close']), lookback)
+    # Get log average true range using the ``ta`` package
+    atr_ind = AverageTrueRange(
+        np.log(data['high']),
+        np.log(data['low']),
+        np.log(data['close']),
+        window=lookback,
+        fillna=True,
+    )
+    atr = atr_ind.average_true_range()
 
     all_levels = [None] * len(data)
     for i in range(lookback, len(data)):
